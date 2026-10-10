@@ -35,16 +35,36 @@ from org.telegram.messenger import (
     MessagesController,
 )
 
-from elyx import BasePlugin, PluginMetadata
-from elyx.android import (
-    makeOnClickListener,
-    onAndroidUiThread,
-    runOnUIThread,
-    startActivity,
-    toast,
-)
-from elyx.client import get_current_activity, get_dialog_object, get_user_id
-from elyx.files import get_downloads_dir, write_bytes
+# --- Импорты SDK: поддерживаем и пакет `extera`, и пакет `elyx` -------------
+try:
+    from extera import BasePlugin, PluginMetadata
+except ImportError:  # pragma: no cover - зависит от сборки SDK
+    from elyx import BasePlugin, PluginMetadata
+
+try:
+    from extera.android_utils import (
+        makeOnClickListener,
+        onAndroidUiThread,
+        runOnUIThread,
+        startActivity,
+        toast,
+    )
+    from extera.client_utils import (
+        get_current_activity,
+        get_dialog_object,
+        get_user_id,
+    )
+    from extera.file_utils import get_downloads_dir, write_bytes
+except ImportError:  # pragma: no cover - альтернативные имена модулей
+    from elyx.android import (
+        makeOnClickListener,
+        onAndroidUiThread,
+        runOnUIThread,
+        startActivity,
+        toast,
+    )
+    from elyx.client import get_current_activity, get_dialog_object, get_user_id
+    from elyx.files import get_downloads_dir, write_bytes
 
 
 BATCH_SIZE = 100        # размер пачки при запросе истории (~100 сообщений)
@@ -395,7 +415,10 @@ class Exporter:
         """Сохраняет файл в общую папку «Загрузки» устройства."""
         # Android 10+: MediaStore Downloads (через helper SDK, если доступен)
         try:
-            from elyx.android import saveFileToDownloads
+            try:
+                from extera.android_utils import saveFileToDownloads
+            except ImportError:
+                from elyx.android import saveFileToDownloads
             uri = saveFileToDownloads(content, fname, "text/plain")
             if uri is not None:
                 return str(uri)

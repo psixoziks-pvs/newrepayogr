@@ -44,6 +44,10 @@ all_chats_download/
 
 ## Установка
 
+Готовый файл **`all_chats_download.plugin`** — это zip-архив (в корне: `plugin.json`, `main.py`).
+Собрать его заново: `zip -j all_chats_download.plugin plugin.json main.py README.md`, затем переименовать `.zip` → `.plugin`.
+
+
 1. Откройте exteraGram → **Настройки → Плагины**.
 2. Установите плагин из файла/архива (`.zip` с этой папкой) или подключитесь
    через Dev Server для разработки.
