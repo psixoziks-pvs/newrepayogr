@@ -1,24 +1,24 @@
-"""all_chats_download — плагин exteraGram (SDK Elyx).
+"""all_chats_download - plagin exteraGram (SDK Elyx).
 
-Добавляет пункт 💾 «Скачать чат» в меню «три точки» внутри чата или группы.
-По нажатию выгружает всю доступную историю переписки в .txt файл и сохраняет
-его в папку «Загрузки» на устройстве.
+Dobavlyaet punkt  Skachat chat v menyu tri tochki vnutri chata ili gruppy.
+Po nazhatiyu vygruzhaet vsyu dostupnuyu istoriyu perepiski v .txt fayl i sokhranyaet
+ego v papku Zagruzki na ustroystve.
 
-Формат файла:
+Format fayla:
 
-    Чат: Название
-    Экспортировано: 2026-10-09 15:30
-    Всего сообщений: 12453
-    ─────────────────────────────
-    [2024-01-01 10:15] Иван: Привет
-    [2024-01-01 10:16] Мария: Привет, как дела?
-    [2024-01-01 10:17] Иван: [фото]
+    CHat: Nazvanie
+    Eksportirovano: 2026-10-09 15:30
+    Vsego soobshcheniy: 12453
+    
+    [2024-01-01 10:15] Ivan: Privet
+    [2024-01-01 10:16] Mariya: Privet, kak dela?
+    [2024-01-01 10:17] Ivan: [foto]
 
-Имя файла: chat_НазваниеЧата_2026-10-09.txt (недопустимые символы -> "_").
+Imya fayla: chat_NazvanieCHata_2026-10-09.txt (nedopustimye simvoly -> "_").
 
-Во время выгрузки показывается прогресс «Загружено N / M» с кнопкой «Отменить».
-После сохранения — диалог «Чат экспортирован, файл в Загрузках» с кнопками
-«Открыть папку» и «ОК».
+Vo vremya vygruzki pokazyvaetsya progress Zagruzheno N / M s knopkoy Otmenit.
+Posle sokhraneniya - dialog CHat eksportirovan, fayl v Zagruzkakh s knopkami
+Otkryt papku i OK.
 """
 
 __elyx_entrypoint__ = "main:AllChatsDownload"
@@ -35,10 +35,10 @@ from org.telegram.messenger import (
     MessagesController,
 )
 
-# --- Импорты SDK: поддерживаем и пакет `extera`, и пакет `elyx` -------------
+# --- Importy SDK: podderzhivaem i paket `extera`, i paket `elyx` -------------
 try:
     from extera import BasePlugin, PluginMetadata
-except ImportError:  # pragma: no cover - зависит от сборки SDK
+except ImportError:  # pragma: no cover - zavisit ot sborki SDK
     from elyx import BasePlugin, PluginMetadata
 
 try:
@@ -55,7 +55,7 @@ try:
         get_user_id,
     )
     from extera.file_utils import get_downloads_dir, write_bytes
-except ImportError:  # pragma: no cover - альтернативные имена модулей
+except ImportError:  # pragma: no cover - alternativnye imena moduley
     from elyx.android import (
         makeOnClickListener,
         onAndroidUiThread,
@@ -67,18 +67,18 @@ except ImportError:  # pragma: no cover - альтернативные имен�
     from elyx.files import get_downloads_dir, write_bytes
 
 
-BATCH_SIZE = 100        # размер пачки при запросе истории (~100 сообщений)
-POLL_STEP_MS = 200      # период обновления прогресса / подтяжки сообщений
-MAX_WAIT_SEC = 60       # макс. ожидание ответа сервера перед финализацией
-MENU_HASH = 0x41D4A4AD  # уникальный id пункта меню
+BATCH_SIZE = 100        # razmer pachki pri zaprose istorii (~100 soobshcheniy)
+POLL_STEP_MS = 200      # period obnovleniya progressa / podtyazhki soobshcheniy
+MAX_WAIT_SEC = 60       # maks. ozhidanie otveta servera pered finalizatsiey
+MENU_HASH = 0x41D4A4AD  # unikalnyy id punkta menyu
 
 
 # ---------------------------------------------------------------------------
-# Вспомогательные функции
+# Vspomogatelnye funktsii
 # ---------------------------------------------------------------------------
 
 def _peer_title(dialog):
-    """Название чата/группы/пользователя по DialogObject."""
+    """Nazvanie chata/gruppy/polzovatelya po DialogObject."""
     try:
         if dialog.chat is not None:
             t = str(dialog.chat.title or "")
@@ -97,19 +97,19 @@ def _peer_title(dialog):
     except Exception:
         pass
     try:
-        return f"Чат {int(dialog.getPeer().id)}"
+        return f"CHat {int(dialog.getPeer().id)}"
     except Exception:
-        return "Чат"
+        return "CHat"
 
 
 def _sender_name(msg, dc):
-    """Имя отправителя сообщения."""
+    """Imya otpravitelya soobshcheniya."""
     try:
         uid = int(msg.fromId)
         if uid == 0:
-            return "Система"
+            return "Sistema"
         if uid == int(get_user_id(dc)):
-            return "Вы"
+            return "Vy"
         user = MessagesController.getInstance(dc).getUser(Integer(uid), False)
         if user is not None:
             name = " ".join(
@@ -121,70 +121,70 @@ def _sender_name(msg, dc):
                 return "@" + str(user.username)
     except Exception:
         pass
-    return "Участник"
+    return "Uchastnik"
 
 
 def _media_label(media):
-    """Пометка для нетекстовых сообщений: [фото], [видео], [голосое] и т.д."""
+    """Pometka dlya netekstovykh soobshcheniy: [foto], [video], [golosoe] i t.d."""
     if media is None:
         return None
     cls = type(media).__name__
     if cls in ("MessageMediaPhoto", "MessageServicePhoto"):
-        return "[фото]"
+        return "[foto]"
     if cls == "MessageMediaDocument":
         doc = getattr(media, "document", None)
         mtype = str(getattr(doc, "mtype", "") or "") if doc is not None else ""
         if doc is not None and getattr(doc, "sticker", None) is not None:
-            return "[стикер]"
+            return "[stiker]"
         if "round" in mtype or "voice" in mtype:
-            return "[голосовое]"
+            return "[golosovoe]"
         if "animation" in mtype:
             return "[gif]"
         if doc is not None and getattr(doc, "video", None) is not None:
-            return "[видео]"
-        return "[документ]"
+            return "[video]"
+        return "[dokument]"
     if cls in ("MessageMediaVideo", "MessageServiceVideo"):
-        return "[видео]"
+        return "[video]"
     if cls in ("MessageMediaRoundVideo", "MessageServiceRoundVideo"):
-        return "[видеосообщение]"
+        return "[videosoobshchenie]"
     if cls == "MessageMediaAudio":
-        return "[аудио]"
+        return "[audio]"
     if cls == "MessageMediaPoll":
-        return "[опрос]"
+        return "[opros]"
     if cls == "MessageMediaDice":
-        return "[кости]"
+        return "[kosti]"
     if cls == "MessageMediaContact":
-        return "[контакт]"
+        return "[kontakt]"
     if cls == "MessageMediaGeo":
-        return "[геопозиция]"
+        return "[geopozitsiya]"
     if cls == "MessageMediaVenue":
-        return "[место]"
+        return "[mesto]"
     if cls == "MessageMediaInvoice":
-        return "[счет]"
+        return "[schet]"
     if cls == "MessageMediaWebPage":
-        return "[ссылка]"
+        return "[ssylka]"
     if cls == "MessageMediaStory":
-        return "[история]"
-    return "[медиа]"
+        return "[istoriya]"
+    return "[media]"
 
 
 def _service_action_label(action):
     acls = type(action).__name__ if action is not None else ""
     if "Invite" in acls:
-        return "[пригласил в группу]"
+        return "[priglasil v gruppu]"
     if "Join" in acls:
-        return "[вошел в группу]"
+        return "[voshel v gruppu]"
     if "Photo" in acls:
-        return "[изменил фото группы]"
+        return "[izmenil foto gruppy]"
     if "Title" in acls:
-        return "[изменил название группы]"
+        return "[izmenil nazvanie gruppy]"
     if action is not None:
-        return "[служебное сообщение]"
+        return "[sluzhebnoe soobshchenie]"
     return None
 
 
 def _format_message(msg, dc):
-    """Строка вида '[2024-01-01 10:15] Иван: Привет'."""
+    """Stroka vida '[2024-01-01 10:15] Ivan: Privet'."""
     ts = datetime.fromtimestamp(int(msg.date) if msg.date else time.time())
     stamp = ts.strftime("%Y-%m-%d %H:%M")
     sender = _sender_name(msg, dc)
@@ -193,29 +193,29 @@ def _format_message(msg, dc):
     if label:
         text = f"{text} {label}".strip() if text else label
     if not text:
-        text = _service_action_label(getattr(msg, "action", None)) or "[без текста]"
+        text = _service_action_label(getattr(msg, "action", None)) or "[bez teksta]"
     return f"[{stamp}] {sender}: {text}"
 
 
 def _safe_filename(title, date_str):
-    """chat_НазваниеЧата_2026-10-09.txt; недопустимые символы заменяются на '_'."""
+    """chat_NazvanieCHata_2026-10-09.txt; nedopustimye simvoly zamenyayutsya na '_'."""
     safe = re.sub(r'[\\/:*?"<>|\r\n\t]+', "_", title)
     safe = re.sub(r"\s+", "_", safe).strip("._")[:80] or "chat"
     return f"chat_{safe}_{date_str}.txt"
 
 
 # ---------------------------------------------------------------------------
-# Механизм выгрузки
+# Mekhanizm vygruzki
 # ---------------------------------------------------------------------------
 
 class Exporter:
-    """Собирает историю открытого чата пачками и пишет её в txt-файл.
+    """Sobiraet istoriyu otkrytogo chata pachkami i pishet ee v txt-fayl.
 
-    Источник №1 — локальная база Telegram (ChatMessagesController): сюда
-    складываются сообщения, приходящие с сервера, включая загруженные по
-    loadHistory.  Источник №2 — запросы tl.messages.getHistory через
-    loadHistory(...) пачками по BATCH_SIZE сообщений от новых к старым.
-    Всё выполняется вне UI-потока, интерфейс не блокируется.
+    Istochnik 1 - lokalnaya baza Telegram (ChatMessagesController): syuda
+    skladyvayutsya soobshcheniya, prikhodyashchie s servera, vklyuchaya zagruzhennye po
+    loadHistory.  Istochnik 2 - zaprosy tl.messages.getHistory cherez
+    loadHistory(...) pachkami po BATCH_SIZE soobshcheniy ot novykh k starym.
+    Vse vypolnyaetsya vne UI-potoka, interfeys ne blokiruetsya.
     """
 
     def __init__(self, plugin, dialog, dc):
@@ -227,39 +227,39 @@ class Exporter:
         self.title = _peer_title(dialog)
         self.cancelled = False
         self.exported_ids = set()
-        self.entries = []          # [(date, line), ...] отсортированы по дате
-        self.total_hint = 0        # оценка общего числа сообщений чата
-        self.server_done = False   # сервер больше не отдаёт новые пачки
+        self.entries = []          # [(date, line), ...] otsortirovany po date
+        self.total_hint = 0        # otsenka obshchego chisla soobshcheniy chata
+        self.server_done = False   # server bolshe ne otdaet novye pachki
         self.awaiting_server = False
         self.last_progress_ts = time.time()
         self.last_path = None
 
-    # ---------- запуск ----------
+    # ---------- zapusk ----------
 
     def start(self):
         cmc = ChatMessagesController.getInstance(self.dc)
-        # 1. сколько всего сообщений в этом чате (для счётчика прогресса)
+        # 1. skolko vsego soobshcheniy v etom chate (dlya schetchika progressa)
         try:
             dialog = cmc.getDialog(self.peer)
             if dialog is not None:
                 self.total_hint = int(dialog.topMessage)
         except Exception as e:
             self.plugin.log.warn(f"getDialog failed: {e}")
-        # 2. всё, что уже закешировано на устройстве
+        # 2. vse, chto uzhe zakeshirovano na ustroystve
         try:
             cached = cmc.getAllMessages(self.chat_id, 0, 0, 0, -1, True)
             self._collect_java_list(cached)
         except Exception as e:
             self.plugin.log.warn(f"getAllMessages failed: {e}")
         self.total_hint = max(self.total_hint, len(self.entries))
-        # 3. докачиваем недостающее с сервера
+        # 3. dokachivaem nedostayushchee s servera
         self._kick_history()
         self._tick()
 
     def cancel(self):
         self.cancelled = True
 
-    # ---------- сбор сообщений ----------
+    # ---------- sbor soobshcheniy ----------
 
     def _collect_java_list(self, msgs):
         if msgs is None:
@@ -299,7 +299,7 @@ class Exporter:
         self.entries.insert(lo, (key, line))
 
     def _poll_database(self):
-        """Подтягивает в экспорт сообщения, пришедшие из сети в локальную базу."""
+        """Podtyagivaet v eksport soobshcheniya, prishedshie iz seti v lokalnuyu bazu."""
         try:
             cmc = ChatMessagesController.getInstance(self.dc)
             oldest = min(self.exported_ids) if self.exported_ids else 0
@@ -308,13 +308,13 @@ class Exporter:
         except Exception as e:
             self.plugin.log.warn(f"poll db failed: {e}")
 
-    # ---------- запрос истории с сервера пачками ----------
+    # ---------- zapros istorii s servera pachkami ----------
 
     def _kick_history(self):
         if self.cancelled or self.server_done or self.awaiting_server:
             return
         oldest = min(self.exported_ids) if self.exported_ids else 0
-        # запрос идёт из UI-цикла тика, колбэк вернётся тоже в UI-поток
+        # zapros idet iz UI-tsikla tika, kolbek vernetsya tozhe v UI-potok
         self.awaiting_server = True
         try:
             ChatMessagesController.getInstance(self.dc).loadHistory(
@@ -350,12 +350,12 @@ class Exporter:
         except Exception as e:
             self.plugin.log.warn(f"parse history batch failed: {e}")
         if len(self.exported_ids) - before <= 0:
-            # дальше только дубликаты — история собрана
+            # dalshe tolko dublikaty - istoriya sobrana
             self.server_done = True
             return
         self._kick_history()
 
-    # ---------- прогресс и завершение ----------
+    # ---------- progress i zavershenie ----------
 
     def _current_count(self):
         return len(self.entries)
@@ -377,7 +377,7 @@ class Exporter:
         self._poll_database()
         finished = self.server_done and not self.awaiting_server
         if not finished:
-            # страховка: если сервер молчит слишком долго — завершаем тем, что есть
+            # strakhovka: esli server molchit slishkom dolgo - zavershaem tem, chto est
             idle_sec = time.time() - self.last_progress_ts if self.last_progress_ts else 0
             if self.awaiting_server and idle_sec > MAX_WAIT_SEC:
                 self.server_done = True
@@ -395,10 +395,10 @@ class Exporter:
         count = len(lines)
         now = datetime.now()
         header = (
-            f"Чат: {self.title}\n"
-            f"Экспортировано: {now.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Всего сообщений: {count}\n"
-            "─────────────────────────────\n"
+            f"\u0427\u0430\u0442: {self.title}\n"
+            f"\u042d\u043a\u0441\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u043e: {now.strftime('%Y-%m-%d %H:%M')}\n"
+            f"\u0412\u0441\u0435\u0433\u043e \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439: {count}\n"
+            "\n"
         )
         content = (header + "\n".join(lines) + "\n").encode("utf-8")
         fname = _safe_filename(self.title, now.strftime("%Y-%m-%d"))
@@ -412,8 +412,8 @@ class Exporter:
         self.plugin.on_export_done(path, count)
 
     def _save_to_downloads(self, fname, content):
-        """Сохраняет файл в общую папку «Загрузки» устройства."""
-        # Android 10+: MediaStore Downloads (через helper SDK, если доступен)
+        """Sokhranyaet fayl v obshchuyu papku Zagruzki ustroystva."""
+        # Android 10+: MediaStore Downloads (cherez helper SDK, esli dostupen)
         try:
             try:
                 from extera.android_utils import saveFileToDownloads
@@ -424,10 +424,10 @@ class Exporter:
                 return str(uri)
         except Exception:
             pass
-        # запасной вариант — прямая запись в каталог Download
+        # zapasnoy variant - pryamaya zapis v katalog Download
         out = File(get_downloads_dir(), fname)
         write_bytes(out.getPath(), content)
-        # уведомить медиа-сканер, чтобы файл сразу появился в «Загрузках»
+        # uvedomit media-skaner, chtoby fayl srazu poyavilsya v Zagruzkakh
         try:
             activity = get_current_activity()
             if activity is not None:
@@ -442,18 +442,18 @@ class Exporter:
 
 
 # ---------------------------------------------------------------------------
-# Класс плагина
+# Klass plagina
 # ---------------------------------------------------------------------------
 
 class AllChatsDownload(BasePlugin):
-    """Точка входа: регистрирует пункт меню и управляет выгрузкой."""
+    """Tochka vkhoda: registriruet punkt menyu i upravlyaet vygruzkoy."""
 
     metadata = PluginMetadata(
         id="all_chats_download",
         name="All Chats Download",
         description=(
-            "Кнопка 💾 «Скачать чат» в меню «три точки»: выгружает всю "
-            "доступную историю переписки в .txt и сохраняет в «Загрузки»."
+            "Knopka  Skachat chat v menyu tri tochki: vygruzhaet vsyu "
+            "dostupnuyu istoriyu perepiski v .txt i sokhranyaet v Zagruzki."
         ),
         author="exteraGram community",
         version="1.0.0",
@@ -462,59 +462,59 @@ class AllChatsDownload(BasePlugin):
     def on_load(self):
         super().on_load()
         self._exporter = None
-        self._progress = None       # активный диалог прогресса
+        self._progress = None       # aktivnyy dialog progressa
         self._last_path = None
 
-    # ---------- пункт в меню «три точки» ----------
+    # ---------- punkt v menyu tri tochki ----------
 
     def get_chat_menu_items(self):
         return [
             {
-                "title": "💾 Скачать чат",
+                "title": "\U0001F4BE Skachat chat",
                 "hash": MENU_HASH,
                 "callback": lambda *args: self._start_export(),
             }
         ]
 
-    # ---------- запуск ----------
+    # ---------- zapusk ----------
 
     def _start_export(self):
         @onAndroidUiThread
         def _():
             if self._exporter is not None:
-                toast("Выгрузка уже выполняется")
+                toast("Vygruzka uzhe vypolnyaetsya")
                 return
             activity = get_current_activity()
             if activity is None:
-                toast("Не удалось определить открытый чат")
+                toast("Ne udalos opredelit otkrytyy chat")
                 return
             dialog = get_dialog_object(
                 activity.getCurrentChatId(), activity.getCurrentChatTopicId()
             )
             if dialog is None or dialog.empty():
-                toast("Не удалось определить открытый чат")
+                toast("Ne udalos opredelit otkrytyy chat")
                 return
             exporter = Exporter(self, dialog, self.current_account)
             self._exporter = exporter
-            self.log.info(f"экспорт начат: {exporter.title}")
+            self.log.info(f"eksport nachat: {exporter.title}")
             try:
                 exporter.start()
             except Exception as e:
-                self.log.error(f"экспорт упал на старте: {e}")
+                self.log.error(f"eksport upal na starte: {e}")
                 self._exporter = None
                 self.on_export_error(str(e))
 
-    # ---------- прогресс ----------
+    # ---------- progress ----------
 
     def show_progress(self, current, total):
-        """Обновляет счётчик «Загружено current / total», кнопка «Отменить»."""
+        """Obnovlyaet schetchik Zagruzheno current / total, knopka Otmenit."""
         @onAndroidUiThread
         def _():
             from androidx.appcompat.app import AlertDialog
             activity = get_current_activity()
             if activity is None:
                 return
-            text = f"Загружено {current} / {total}"
+            text = f"Zagruzheno {current} / {total}"
             if self._progress is not None:
                 try:
                     self._progress.setMessage(String(text))
@@ -522,11 +522,11 @@ class AllChatsDownload(BasePlugin):
                 except Exception:
                     self._dismiss_progress()
             builder = AlertDialog.Builder(activity)
-            builder.setTitle("Экспорт чата…")
+            builder.setTitle("Eksport chata...")
             builder.setMessage(String(text))
             builder.setCancelable(False)
             builder.setNegativeButton(
-                String("Отменить"),
+                String("Otmenit"),
                 makeOnClickListener(lambda v: self._cancel_export()),
             )
             dlg = builder.create()
@@ -546,21 +546,21 @@ class AllChatsDownload(BasePlugin):
             except Exception:
                 pass
 
-    # ---------- финальные колбэки ----------
+    # ---------- finalnye kolbeki ----------
 
     def on_export_cancelled(self):
         @onAndroidUiThread
         def _():
             self._dismiss_progress()
             self._exporter = None
-            toast("Экспорт отменён")
+            toast("Eksport otmenen")
 
     def on_export_error(self, err):
         @onAndroidUiThread
         def _():
             self._dismiss_progress()
             self._exporter = None
-            toast("Ошибка экспорта: " + str(err)[:120])
+            toast("Oshibka eksporta: " + str(err)[:120])
 
     def on_export_done(self, path, count):
         self._last_path = path
@@ -571,30 +571,30 @@ class AllChatsDownload(BasePlugin):
             self._exporter = None
             self._alert_done(path, count)
 
-    # ---------- диалог по завершении ----------
+    # ---------- dialog po zavershenii ----------
 
     def _alert_done(self, path, count):
         activity = get_current_activity()
         message = (
-            "Чат экспортирован, файл в Загрузках\n"
-            f"Сообщений: {count}\n{path}"
+            "CHat eksportirovan, fayl v Zagruzkakh\n"
+            f"Soobshcheniy: {count}\n{path}"
         )
         if activity is None:
-            toast("Чат экспортирован, файл в Загрузках")
+            toast("CHat eksportirovan, fayl v Zagruzkakh")
             return
         from androidx.appcompat.app import AlertDialog
         builder = AlertDialog.Builder(activity)
-        builder.setTitle("Готово")
+        builder.setTitle("Gotovo")
         builder.setMessage(message)
-        builder.setPositiveButton(String("ОК"), None)
+        builder.setPositiveButton(String("OK"), None)
         builder.setNeutralButton(
-            String("Открыть папку"),
+            String("Otkryt papku"),
             makeOnClickListener(lambda v: self._open_downloads()),
         )
         builder.create().show()
 
     def _open_downloads(self):
-        """Открывает «Загрузки» (или сам файл, если проводник недоступен)."""
+        """Otkryvaet Zagruzki (ili sam fayl, esli provodnik nedostupen)."""
         activity = get_current_activity()
         if activity is None:
             return
@@ -602,7 +602,7 @@ class AllChatsDownload(BasePlugin):
         from android.net import Uri
         from java.io import File
 
-        # 1) файловый менеджер с общим каталогом Download
+        # 1) faylovyy menedzher s obshchim katalogom Download
         try:
             intent = Intent("android.intent.action.VIEW")
             intent.setDataAndType(Uri.parse("content://downloads/my_downloads"), "*/*")
@@ -611,7 +611,7 @@ class AllChatsDownload(BasePlugin):
             return
         except Exception as e:
             self.log.warn(f"open downloads dir failed: {e}")
-        # 2) открыть сам экспортированный файл во внешнем просмотрщике
+        # 2) otkryt sam eksportirovannyy fayl vo vneshnem prosmotrshchike
         path = self._last_path
         if path:
             try:

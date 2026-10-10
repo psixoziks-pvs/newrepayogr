@@ -1,11 +1,13 @@
 {
   "id": "all_chats_download",
   "name": "All Chats Download",
-  "description": "Кнопка 💾 «Скачать чат» в меню «три точки»: выгружает всю доступную историю переписки в .txt файл и сохраняет его в папку «Загрузки». Для больших чатов — счётчик прогресса и возможность отменить.",
+  "description": "Knopka 'Skachat chat' v menu tri tochki: vygruzhaet vsyu dostupnuyu istoriyu perepiski v .txt i sokhranyaet v papku Zagruzki. Dlya bolshikh chatov est progress i otmena.",
   "author": "exteraGram community",
   "version": "1.0.0",
-  "icon": "💾",
+  "icon": "save",
   "entrypoint": "main:AllChatsDownload",
   "minSdkVersion": "1.4.4.3",
-  "permissions": ["storage"]
+  "permissions": [
+    "storage"
+  ]
 }
