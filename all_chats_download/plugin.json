@@ -1,0 +1,13 @@
+{
+  "id": "all_chats_download",
+  "name": "All Chats Download",
+  "description": "Knopka 'Skachat chat' v menu tri tochki: vygruzhaet vsyu dostupnuyu istoriyu perepiski v .txt i sokhranyaet v papku Zagruzki. Dlya bolshikh chatov est progress i otmena.",
+  "author": "exteraGram community",
+  "version": "1.0.0",
+  "icon": "save",
+  "entrypoint": "main:AllChatsDownload",
+  "minSdkVersion": "1.4.4.3",
+  "permissions": [
+    "storage"
+  ]
+}
